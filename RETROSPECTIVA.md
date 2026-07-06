@@ -104,6 +104,33 @@ escritura).
 **Solución:** eliminar la anotación; el método ya devuelve
 `ResponseEntity.status(HttpStatus.NO_CONTENT)` explícitamente.
 
+## 6. El pipeline de GitLab se quedaba en `pending` para siempre
+
+**Síntoma:** tras el primer push a gitlab.codecrypto.academy, el pipeline llevaba
+más de 9 minutos en `pending` sin que ningún runner tomara el job.
+
+**Causa:** el `.gitlab-ci.yml` inicial usaba `image: maven:3.9-eclipse-temurin-21`
+sin tags. En la infraestructura de la academia solo hay **un runner operativo,
+con tag `cloudrun` y executor shell**: los jobs sin ese tag no los toma nadie
+(pending eterno) y, además, el executor shell **ignora `image:`** — no existe
+un contenedor Maven donde correr `mvn test`. Todo esto estaba ya documentado
+en el AGENTS.md §CI de los proyectos lottery y ecommerce.
+
+**Solución:** replicar el patrón probado de esos proyectos:
+
+1. `.gitlab-ci.yml` incluye el template compartido
+   `internos/templates-cicd → templates/build-deploy.yml`, cuyo job `build`
+   (tag `cloudrun`) construye la imagen con buildah.
+2. `wake_cloudrun_runners` y `deploy` desactivados con `rules: when: never`
+   (con `allow_failure` el pipeline quedaría "passed with warnings", no verde limpio).
+3. Los **tests corren dentro del build del Dockerfile**: el stage de Maven
+   ejecuta `mvn test package`, de modo que un test en rojo rompe el build y el
+   pipeline falla. Verde en `build` = tests en verde.
+
+**Lección:** antes de escribir CI para una infraestructura compartida, leer la
+documentación operativa de los proyectos que ya la sufrieron (AGENTS.md /
+RETROSPECTIVA.md de lottery, ecommerce, bonos, videocapture).
+
 ## Lecciones aprendidas
 
 - **Spring Boot 4 rompió las rutas de paquetes de test más citadas.** Ante un

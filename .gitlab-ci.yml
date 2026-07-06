@@ -1,25 +1,21 @@
-# Pipeline de GitLab CI: compila y ejecuta los tests de integración.
-# La imagen trae Maven 3.9 + Temurin JDK 21, igual que el entorno local.
+# Pipeline según el patrón probado en lottery/ecommerce (ver AGENTS.md §CI de
+# esos proyectos): el único runner operativo tiene tag `cloudrun` y executor
+# shell (ignora `image:`), así que jobs con imagen Maven se quedan en pending.
+# Los tests se ejecutan DENTRO del build del Dockerfile (stage de Maven corre
+# `mvn test package`): si un test falla, buildah falla y el pipeline queda rojo.
+include:
+  - project: 'internos/templates-cicd'
+    ref: main
+    file:
+      - 'templates/build-deploy.yml'
 
-image: maven:3.9-eclipse-temurin-21
+# Solo el job `build` es compatible con la infraestructura actual; el resto se
+# desactiva por completo (con allow_failure quedaría "passed with warnings" en
+# lugar de verde limpio).
+wake_cloudrun_runners:
+  rules:
+    - when: never
 
-variables:
-  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-  MAVEN_CLI_OPTS: "--batch-mode --no-transfer-progress"
-
-cache:
-  key: maven-repo
-  paths:
-    - .m2/repository
-
-stages:
-  - test
-
-test:
-  stage: test
-  script:
-    - mvn $MAVEN_CLI_OPTS test
-  artifacts:
-    when: always
-    reports:
-      junit: target/surefire-reports/TEST-*.xml
+deploy:
+  rules:
+    - when: never

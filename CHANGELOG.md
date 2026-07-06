@@ -9,10 +9,16 @@ aquí y, cuando corresponde, en `README.md`, `QUICKSTART.md` y `RETROSPECTIVA.md
 - Repositorio git inicializado y publicado en:
   - GitLab: https://gitlab.codecrypto.academy/ojrapp/sprint-boot-tareas
   - GitHub: https://github.com/OSCARJORGERAPP/sprint-boot-tareas
-- `.gitlab-ci.yml`: pipeline que ejecuta `mvn test` con Maven 3.9 + JDK 21
-  (misma versión que el entorno local), cachea `.m2` y publica el reporte
-  JUnit de Surefire para ver los tests en verde en la UI de GitLab.
-- `.github/workflows/ci.yml`: workflow equivalente en GitHub Actions.
+- `.gitlab-ci.yml` (versión final): usa los templates compartidos
+  `internos/templates-cicd` con el job `build` (runner tag `cloudrun`,
+  buildah), igual que lottery/ecommerce; `wake_cloudrun_runners` y `deploy`
+  desactivados. La primera versión (imagen Maven sin tags) quedaba en
+  `pending` eterno — ver `RETROSPECTIVA.md` §6.
+- `Dockerfile` multi-stage: el stage de build ejecuta `mvn test package`
+  (los tests en rojo rompen el pipeline); el stage final es JRE 21 + jar,
+  escuchando en el puerto 3000 que espera la plataforma.
+- `.github/workflows/ci.yml`: workflow de GitHub Actions que ejecuta
+  `mvn test` directamente (GitHub sí tiene runners con contenedores).
 - Verificado localmente antes del push: `Tests run: 12, Failures: 0, Errors: 0`.
 
 ### Cómo ver en la consola H2 una tarea cargada desde el formulario
