@@ -13,7 +13,10 @@ aquí y, cuando corresponde, en `README.md`, `QUICKSTART.md` y `RETROSPECTIVA.md
   `internos/templates-cicd` con el job `build` (runner tag `cloudrun`,
   buildah), igual que lottery/ecommerce; `wake_cloudrun_runners` y `deploy`
   desactivados. La primera versión (imagen Maven sin tags) quedaba en
-  `pending` eterno — ver `RETROSPECTIVA.md` §6.
+  `pending` eterno — ver `RETROSPECTIVA.md` §6. Además, el job `build` se
+  sobrescribe para no exportar la imagen como artifact: la imagen Java
+  supera el límite de artifacts del GitLab (error 413) y el deploy está
+  desactivado — ver `RETROSPECTIVA.md` §7.
 - `Dockerfile` multi-stage: el stage de build ejecuta `mvn test package`
   (los tests en rojo rompen el pipeline); el stage final es JRE 21 + jar,
   escuchando en el puerto 3000 que espera la plataforma.

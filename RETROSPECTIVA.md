@@ -131,6 +131,25 @@ en el AGENTS.md §CI de los proyectos lottery y ecommerce.
 documentación operativa de los proyectos que ya la sufrieron (AGENTS.md /
 RETROSPECTIVA.md de lottery, ecommerce, bonos, videocapture).
 
+## 7. El build pasó los tests pero el job falló al subir el artifact (413)
+
+**Síntoma:** en el pipeline #1550 los tests corrieron en verde dentro del build
+(`Tests run: 12, Failures: 0, Errors: 0`) y la imagen se construyó, pero el job
+terminó en rojo al subir `image.tar.gz`:
+`413 Request Entity Too Large` → `FATAL: too large`.
+
+**Causa:** el job `build` del template exporta la imagen como artifact para que
+`deploy` la use. Una imagen Java (JRE 21 + jar) comprimida supera el tamaño
+máximo de artifacts configurado en este GitLab. En los proyectos Node
+(lottery/ecommerce) la imagen standalone es mucho más pequeña y no chocaba con
+el límite.
+
+**Solución:** como `deploy` está desactivado, el artifact no lo consume nadie:
+se sobrescribe el job `build` en `.gitlab-ci.yml` para que solo ejecute
+`buildah build` (sin `push` a docker-archive ni `gzip`) y con `artifacts: null`.
+El valor del job queda intacto: los tests se ejecutan dentro del Dockerfile y
+el verde del build certifica los tests en verde.
+
 ## Lecciones aprendidas
 
 - **Spring Boot 4 rompió las rutas de paquetes de test más citadas.** Ante un

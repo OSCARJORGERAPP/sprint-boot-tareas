@@ -19,3 +19,13 @@ wake_cloudrun_runners:
 deploy:
   rules:
     - when: never
+
+# El script del template exporta la imagen como artifact (image.tar.gz), pero
+# la imagen Java (JRE) supera el tamaño máximo de artifacts de este GitLab
+# (413 Request Entity Too Large) y el deploy está desactivado, así que solo
+# construimos: el build ejecuta `mvn test package` dentro del Dockerfile y es
+# lo que deja los tests en verde.
+build:
+  script:
+    - buildah build --no-cache -t "${CONTAINER_NAME}:latest" .
+  artifacts: null
