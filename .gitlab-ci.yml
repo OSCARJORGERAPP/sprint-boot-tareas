@@ -1,0 +1,25 @@
+# Pipeline de GitLab CI: compila y ejecuta los tests de integración.
+# La imagen trae Maven 3.9 + Temurin JDK 21, igual que el entorno local.
+
+image: maven:3.9-eclipse-temurin-21
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  MAVEN_CLI_OPTS: "--batch-mode --no-transfer-progress"
+
+cache:
+  key: maven-repo
+  paths:
+    - .m2/repository
+
+stages:
+  - test
+
+test:
+  stage: test
+  script:
+    - mvn $MAVEN_CLI_OPTS test
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml

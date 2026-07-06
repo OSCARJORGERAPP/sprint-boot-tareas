@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista de Tareas</title>
+<style>
+  :root {
+    --fondo: #f4f5f7;
+    --tarjeta: #ffffff;
+    --texto: #1f2937;
+    --texto-suave: #6b7280;
+    --primario: #2563eb;
+    --primario-hover: #1d4ed8;
+    --peligro: #dc2626;
+    --exito: #16a34a;
+    --borde: #e5e7eb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .contenedor { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin-bottom: 1.25rem; text-align: center; }
+
+  form {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 10px;
+    padding: 1rem;
+    display: grid;
+    gap: .6rem;
+    margin-bottom: 1.25rem;
+  }
+  input, textarea {
+    width: 100%;
+    padding: .55rem .7rem;
+    background: #111827;
+    color: #f9fafb;
+    border: 1px solid #4b5563;
+    border-radius: 6px;
+    font: inherit;
+  }
+  input::placeholder, textarea::placeholder { color: #9ca3af; }
+  input:focus, textarea:focus { outline: 2px solid var(--primario); border-color: transparent; }
+  textarea { resize: vertical; min-height: 2.5rem; }
+  .form-error { color: #f87171; font-size: .85rem; display: none; }
+
+  button {
+    font: inherit;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: .55rem 1rem;
+  }
+  .btn-primario { background: var(--primario); color: #fff; justify-self: start; }
+  .btn-primario:hover { background: var(--primario-hover); }
+
+  .filtros { display: flex; gap: .5rem; margin-bottom: 1rem; justify-content: center; }
+  .filtros button {
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    color: var(--texto-suave);
+    padding: .35rem .9rem;
+    border-radius: 999px;
+    font-size: .875rem;
+  }
+  .filtros button.activo { background: var(--primario); border-color: var(--primario); color: #fff; }
+
+  ul { list-style: none; display: grid; gap: .6rem; }
+  li.tarea {
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+  }
+  li.tarea input[type="checkbox"] {
+    width: 1.15rem; height: 1.15rem;
+    margin-top: .2rem;
+    accent-color: var(--exito);
+    cursor: pointer;
+    flex: none;
+  }
+  .tarea-cuerpo { flex: 1; min-width: 0; }
+  .tarea-titulo { font-weight: 600; overflow-wrap: break-word; }
+  .completada .tarea-titulo { text-decoration: line-through; color: var(--texto-suave); }
+  .tarea-desc { color: var(--texto-suave); font-size: .875rem; margin-top: .15rem; overflow-wrap: break-word; }
+  .tarea-fecha { color: var(--texto-suave); font-size: .75rem; margin-top: .3rem; }
+  .btn-borrar {
+    background: transparent;
+    color: var(--texto-suave);
+    font-size: 1.1rem;
+    padding: .2rem .45rem;
+    flex: none;
+  }
+  .btn-borrar:hover { color: var(--peligro); background: #fee2e2; }
+
+  .vacio, .error-carga {
+    text-align: center;
+    color: var(--texto-suave);
+    padding: 2rem 0;
+  }
+  .error-carga { color: var(--peligro); }
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <h1>📝 Lista de Tareas</h1>
+
+  <form id="form-nueva">
+    <input id="titulo" name="titulo" placeholder="¿Qué hay que hacer?" maxlength="100" required>
+    <textarea id="descripcion" name="descripcion" placeholder="Descripción (opcional)" maxlength="500"></textarea>
+    <p class="form-error" id="form-error"></p>
+    <button type="submit" class="btn-primario">Agregar tarea</button>
+  </form>
+
+  <div class="filtros" id="filtros">
+    <button data-filtro="todas" class="activo">Todas</button>
+    <button data-filtro="pendientes">Pendientes</button>
+    <button data-filtro="completadas">Completadas</button>
+  </div>
+
+  <ul id="lista"></ul>
+  <p class="vacio" id="vacio" hidden>No hay tareas para mostrar.</p>
+  <p class="error-carga" id="error-carga" hidden></p>
+</div>
+
+<script>
+const API = '/api/tareas';
+let filtroActual = 'todas';
+
+const lista = document.getElementById('lista');
+const vacio = document.getElementById('vacio');
+const errorCarga = document.getElementById('error-carga');
+const formError = document.getElementById('form-error');
+
+async function cargarTareas() {
+  errorCarga.hidden = true;
+  let url = API;
+  if (filtroActual === 'pendientes') url += '?completada=false';
+  if (filtroActual === 'completadas') url += '?completada=true';
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const tareas = await resp.json();
+    pintar(tareas);
+  } catch (e) {
+    lista.innerHTML = '';
+    vacio.hidden = true;
+    errorCarga.textContent = 'No se pudo cargar la lista. ¿Está corriendo la app? (' + e.message + ')';
+    errorCarga.hidden = false;
+  }
+}
+
+function pintar(tareas) {
+  lista.innerHTML = '';
+  vacio.hidden = tareas.length > 0;
+  for (const t of tareas) {
+    const li = document.createElement('li');
+    li.className = 'tarea' + (t.completada ? ' completada' : '');
+
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.checked = t.completada;
+    check.title = t.completada ? 'Marcar como pendiente' : 'Marcar como completada';
+    check.addEventListener('change', () => alternarCompletada(t, check.checked));
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'tarea-cuerpo';
+    const titulo = document.createElement('div');
+    titulo.className = 'tarea-titulo';
+    titulo.textContent = t.titulo;
+    cuerpo.appendChild(titulo);
+    if (t.descripcion) {
+      const desc = document.createElement('div');
+      desc.className = 'tarea-desc';
+      desc.textContent = t.descripcion;
+      cuerpo.appendChild(desc);
+    }
+    const fecha = document.createElement('div');
+    fecha.className = 'tarea-fecha';
+    fecha.textContent = 'Creada: ' + new Date(t.fechaCreacion).toLocaleString('es');
+    cuerpo.appendChild(fecha);
+
+    const borrar = document.createElement('button');
+    borrar.className = 'btn-borrar';
+    borrar.textContent = '🗑';
+    borrar.title = 'Eliminar tarea';
+    borrar.addEventListener('click', () => eliminarTarea(t.id));
+
+    li.append(check, cuerpo, borrar);
+    lista.appendChild(li);
+  }
+}
+
+document.getElementById('form-nueva').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  formError.style.display = 'none';
+  const titulo = document.getElementById('titulo').value.trim();
+  const descripcion = document.getElementById('descripcion').value.trim() || null;
+  try {
+    const resp = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titulo, descripcion })
+    });
+    if (resp.status === 400) {
+      const cuerpo = await resp.json();
+      formError.textContent = Object.values(cuerpo.errores || {}).join('. ') || 'Datos inválidos.';
+      formError.style.display = 'block';
+      return;
+    }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    ev.target.reset();
+    await cargarTareas();
+  } catch (e) {
+    formError.textContent = 'Error al crear la tarea: ' + e.message;
+    formError.style.display = 'block';
+  }
+});
+
+async function alternarCompletada(tarea, completada) {
+  await fetch(API + '/' + tarea.id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ titulo: tarea.titulo, descripcion: tarea.descripcion, completada })
+  });
+  await cargarTareas();
+}
+
+async function eliminarTarea(id) {
+  await fetch(API + '/' + id, { method: 'DELETE' });
+  await cargarTareas();
+}
+
+document.getElementById('filtros').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-filtro]');
+  if (!btn) return;
+  filtroActual = btn.dataset.filtro;
+  document.querySelectorAll('#filtros button').forEach(b => b.classList.toggle('activo', b === btn));
+  cargarTareas();
+});
+
+cargarTareas();
+</script>
+</body>
+</html>
